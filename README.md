@@ -18,7 +18,7 @@ jupyter lab
 ssh -L 8888:localhost:8888 yxu78@xionglab3.mae.ncsu.edu (其中8888是上一个窗口给出的port,以具体情况为准)
 ```
 用本地浏览器打开第一个窗口给出的链接进入jupyter lab，进入./test2文件夹，开一个名为test2.ipynb的kernel开始写代码块  
-设置数据目录路径和csv文件路径
+设置数据目录路径和csv文件路径(后续工作视情况而定)
 ```
 data_dir = '/data8/test2/'
 csvfile = '/data8/test2/test.csv'
@@ -221,4 +221,83 @@ decoder = Decoder_Attn( image_channels=input_dim, latent_dim=hidden_dim,       #
 ###########################################################################
 model = VQVAEModel(Encoder=encoder, Codebook=codebook, Decoder=decoder).to(DEVICE)    #组建完整模型，放入GPU设备
 count_parameters(model)    #统计并输出模型总参数数和可训练参数数
+```
+```
+load_model=False    #第一次，没有已经训练的模型可以载入
+```
+```
+from torch.optim import Adam
+from torch import nn
+
+mse_loss = nn.MSELoss()    
+optimizer = Adam(model.parameters(), lr=lr)   
+isample=1 #sample frequency
+
+loss_list=[]
+step=0
+
+epochs = 128
+
+print_step = 1
+icheckpt = 5
+
+min_loss = 999999999
+```
+执行训练的函数
+```
+def train_steps (model, train_loader, test_loader, startep=0, epochs=500,min_loss = 999):
+    print("Start training VQ-VAE...")    #epochs训练多少轮
+
+    startstep=len (train_loader)*startep    #已经走过多少步
+    step=startep
+    for epoch in range(epochs):
+        overall_loss = 0
+        losscoll=0
+        for batch_idx, (x) in enumerate(tqdm(train_loader)):
+                x = x.to(DEVICE)    #把图片搬到CPU/GPU
+                model.train()    #训练模式
+                optimizer.zero_grad()
+
+                x_hat, indices, commitment_loss = model(x)
+                recon_loss = mse_loss(x_hat, x)    重建误差（均方差）
+
+                loss =  recon_loss + commitment_loss #+ codebook_loss    #总损失
+
+                loss.backward()    #反向优化
+                optimizer.step()
+
+                losscoll=losscoll+loss.item ()
+
+        if step % print_step ==0:     #打印训练日志
+            print("epoch:", epoch + 1 + startep, "  step:", batch_idx + 1 +startstep, "  recon_loss:", recon_loss.item(), #"  perplexity: ", perplexity.item(), 
+                  "\n\t\tcommit_loss: ", commitment_loss.item(), 
+                  " total_loss: ", loss.item())
+
+        loss_list.append (losscoll/len (train_loader))    #记录loss曲线
+
+        if step % isample == 0:    #取样，可视化
+
+            fname1 = f'{prefix}/or_sample-epoch_{step+startstep}.png'
+            fname2 = f'{prefix}/rec_sample-epoch_{step+startstep}.png'
+
+            sample (model, test_loader, fname1=fname1, fname2=fname2, samples=16)
+            plt.plot (loss_list)
+            plt.xlabel ('Iterations')
+            plt.ylabel ('Total loss')
+            plt.show()
+
+        if losscoll/len (train_loader)<min_loss:    #判断是否刷新最小loss
+            min_loss=losscoll/len (train_loader)
+            print ("Smaller loss found")
+            save=True
+
+        if save or (step % icheckpt ==0):    #保存checkpoint
+
+            fname = f'{prefix}/model-epoch_{step}.pt'
+            torch.save(model.state_dict(), fname)
+            print ("Saved checkpoint: ", fname)
+
+            save=False
+
+        step=step+1    #迭代计数
 ```
