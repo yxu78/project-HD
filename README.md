@@ -1,9 +1,8 @@
 # project-HD
 to prove the applicability of the open source code in https://github.com/lamm-mit/HierarchicalDesign/tree/main
-## 我所做的事
-### 1.跑通原代码
+## 1.跑通原代码
 取原数据集中的10张微结构图及其应力数据为训练集，训练原代码的AItool，并利用训练后的AItool进行预测。具体流程如下  
-#### 1.1进入工作环境
+### 1.1进入工作环境
 在本地终端运行
 ```
 ssh yxu78@xionglab3.mae.ncsu.edu
@@ -23,7 +22,7 @@ ssh -L 8888:localhost:8888 yxu78@xionglab3.mae.ncsu.edu (其中8888是上一个�
 data_dir = '/data8/test2/'
 csvfile = '/data8/test2/test.csv'
 ```
-#### 1.2 Model 1: VQ-VAE的训练
+### 1.2 VQ-VAE Model
 导入os库，选择使用第0张GPU
 ```
 import os
@@ -222,6 +221,176 @@ decoder = Decoder_Attn( image_channels=input_dim, latent_dim=hidden_dim,       #
 model = VQVAEModel(Encoder=encoder, Codebook=codebook, Decoder=decoder).to(DEVICE)    #组建完整模型，放入GPU设备
 count_parameters(model)    #统计并输出模型总参数数和可训练参数数
 ```
+定义把Tensor拼图显示保存的函数(draw)，反解码出图像的函数(generate)
+```
+#########################################################
+# CODE BASE: Helpfunctions for sampling, drawing, etc.
+#########################################################    
+    
+to_pil = transforms.ToPILImage()    #准备tensor到PIL的转换器
+
+def draw_sample_image(x, postfix, fname=None,  dpi=600, padding=0,):
+  
+    plt.figure(figsize=(8,8))
+    plt.axis("off")
+    plt.title("Visualization of {}".format(postfix))
+    plt.imshow(np.transpose(make_grid(x.detach().cpu(), padding=padding, normalize=True), (1, 2, 0)))
+    if fname != None:
+        plt.savefig(fname, dpi=dpi)
+    plt.show()
+    
+def generate_from_indices (model, indices=None, flag=0, show_codes=False, num_codebook_vectors=128):
+    if indices==None:
+        print ("Indices not provided, generate random ones...")
+        indices = torch.randint(0, num_codebook_vectors, (1, fmap_lin,fmap_lin))
+    else:
+        indices=torch.reshape (indices, (1, fmap_lin,fmap_lin))
+    fmap=get_fmap_from_codebook (model, indices)
+    print ("Fmap shape: ", fmap.shape)
+    x_hat   = model.decoder(fmap) #non-snapped
+    x_hat=unscale_image(x_hat)
+    
+    image_sample = to_pil(  x_hat[0,:].cpu()  )
+    fname2= prefix+ f"generate_samples_{flag}.png"
+        
+    image_sample.save(f'{fname2}', format="PNG",  subsampling=0  ) 
+    
+    plt.imshow (image_sample)
+    plt.axis('off')
+    plt.show()
+    
+    if show_codes:
+
+        iu=0
+        
+        print (indices.shape)
+        print (indices[iu,:].flatten())
+        plt.plot (indices[iu,:].cpu().detach().flatten().numpy(),label='Codebook vector')
+        plt.legend()
+        plt.xlabel ('Codebook index')
+        plt.ylabel ('Codebook vector ID')
+        plt.show()
+
+        plt.figure(figsize=(8, 3))
+        plt.imshow (indices[iu,:].cpu().detach().flatten().unsqueeze (0).numpy(), cmap='plasma',
+                   aspect=6.)
+        ax = plt.gca()
+
+        ax.get_yaxis().set_visible(False) 
+        plt.clim (0, num_codebook_vectors)
+        plt.colorbar()
+        plt.show()   
+
+        plt.imshow (indices[iu,:].cpu().detach().numpy(), cmap='plasma',)
+        plt.clim (0, num_codebook_vectors)
+        plt.colorbar()
+        plt.show() 
+```
+定义sample函数
+```
+def sample (model, test_loader, samples = 16, fname1 = None, fname2 = None, 
+            batches=1, save_ind_files=False,flag=0,indices_hist=True,
+           show_codes=False):
+    model.eval()
+    e=flag
+    indices_list=[]
+    batches=min (len (test_loader), batches)
+    print ("Number of batches produced: ", batches)
+    with torch.no_grad():
+
+        for batch_idx, (x) in enumerate(tqdm(test_loader)):
+
+            x = x.to(DEVICE)
+            
+            x_hat, indices, commitment_loss,    = model(x)
+
+            with torch.no_grad():
+                x_enc =model.encode(x)
+             
+            with torch.no_grad():
+                z, indices=model.encode_z(x)
+            
+            with torch.no_grad():
+                x_hat_snapped, z_quant =  model.decode_snapped(z,  )
+    
+            samples= min([samples, x.shape[0]])
+             
+            x_hat=unscale_image(x_hat)
+           
+            x=unscale_image(x)
+            
+            indices_list.append (indices.cpu().detach().flatten().numpy())
+
+            if save_ind_files:
+               
+                for iu in range (samples):
+                    fname2= prefix+ f"recon_samples_{e}_{batch_idx}_{iu}.png"
+                    print ("Save individual samples ", fname2)
+
+                    image_sample = to_pil(  x[iu,:].cpu()  )
+
+                    image_sample.save(f'{fname2}', format="PNG",  subsampling=0  )
+                    
+                    fname2= prefix+ f"recon_samples_{e}_{batch_idx}_{iu}.png"
+                    print ("Save individual samples ", fname2)
+
+                    image_sample = to_pil( x_hat[iu,:].cpu()  )
+
+                    image_sample.save(f'{fname2}', format="PNG",  subsampling=0  )
+                    
+                    plt.imshow (image_sample)
+                    plt.axis('off')
+                    plt.show()
+                    if show_codes:
+                        
+                        plt.plot (indices[iu,:].cpu().detach().flatten().numpy(),label='Codebook vectors')
+                        plt.legend()
+                        plt.xlabel ('Codebook index')
+                        plt.ylabel ('Codebook vector ID')
+                        plt.show()
+                        
+                        indices_list.append (indices[iu,:].cpu().detach().flatten().numpy())
+                        
+                        plt.figure(figsize=(8, 3))
+                        plt.imshow (indices[iu,:].cpu().detach().flatten().unsqueeze (0).numpy(), cmap='plasma',
+                                   aspect=6.)
+                        ax = plt.gca()
+ 
+                        ax.get_yaxis().set_visible(False) 
+                        plt.clim (0, num_codebook_vectors)
+                        plt.colorbar()
+                        plt.show()   
+                        
+                        plt.imshow (indices[iu,:].cpu().detach().numpy(), cmap='plasma',)
+                        plt.clim (0, num_codebook_vectors)
+                        plt.colorbar()
+                        plt.show() 
+
+            draw_sample_image(x[:samples], "Ground-truth images", fname1)
+            draw_sample_image(x_hat[:samples], "Reconstructed images", fname2)
+
+            if batch_idx>=(batches-1):
+                
+                if indices_hist:
+                    indices_list=np.array (indices_list).flatten()
+                    
+                    n_bins =num_codebook_vectors 
+
+                    # Creating histogram
+                    fig, axs = plt.subplots(1, 1,
+                                            figsize =(4, 3),
+                                            tight_layout = True)
+
+                    axs.hist(indices_list, bins = n_bins, density=True)
+                    plt.xlabel("Codebook indices")
+                    plt.ylabel("Frequency")
+                   
+                    plt.show()
+                
+                break
+
+    return
+```
 ```
 load_model=False    #第一次，没有已经训练的模型可以载入
 ```
@@ -301,3 +470,19 @@ def train_steps (model, train_loader, test_loader, startep=0, epochs=500,min_los
 
         step=step+1    #迭代计数
 ```
+开始训练,运行这一步的时候会生成很多东西。tqdm会为每个epoch画进度条。每隔print_step打印loss信息。每隔isample从测试集取图片，走encoder到decoder，绘制loss曲线。保存checkpoint。
+```
+if not  load_model:
+    train_steps (model, train_loader, test_loader, startep=0, epochs=epochs)
+```
+拿几批数据走一遍VQ-VAE，看看重建效果
+```
+sample (model, test_loader, batches=4)
+```
+从测试集取一些(batch)测试图像，通过模型重建这些图像，保存和显示原始图像(or_test.png)与重建图像(rec_test.png)  
+这一步可以用来查看模型训练效果
+```
+sample (model, test_loader, fname1 =f'{prefix}/or_test.png', fname2=f'{prefix}/rec_test.png',samples = 32,
+       batches=4)
+```
+### 1.3 Generative attention-diffusion model
