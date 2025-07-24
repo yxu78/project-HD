@@ -516,3 +516,39 @@ print(num_of_gpus)
 available_gpus = [torch.cuda.device(i) for i in range(torch.cuda.device_count())]
 available_gpus
 ```
+```
+device
+```
+```
+print("Torch version:", torch.__version__)
+```
+PyTorch核心库
+```
+import torch    #主库，包含Tensor定义和计算
+import torch.nn as nn    #包含常用神经网络模块
+import torch.nn.functional as F    #定义无状态神经网络函数接口
+```
+```
+import numpy as np    #科学计算
+
+#from tqdm import tqdm    #进度条
+from tqdm.autonotebook import tqdm
+```
+图像处理工具
+```
+from torchvision.utils import save_image, make_grid    #Tensor保存图片，拼接，可视化
+import torch.nn.functional as F
+from torchvision import datasets, transforms, models    #数据集接口，图像预处理，预训练模型
+```
+```
+from sklearn.metrics import r2_score    #回归拟合评估指标
+```
+可视化与数据处理
+```
+import matplotlib.pyplot as plt    #绘图
+
+import ast
+import pandas as pd    #数据分析库
+import numpy as np  
+from einops import rearrange    #张量重排
+```
