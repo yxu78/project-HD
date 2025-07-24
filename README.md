@@ -552,3 +552,16 @@ import pandas as pd    #数据分析库
 import numpy as np  
 from einops import rearrange    #张量重排
 ```
+数据加载，时间，图像对象
+```
+from torch.utils.data import DataLoader,Dataset
+from torchvision.io import read_image
+import pandas as pd
+from sklearn.model_selection import train_test_split
+
+from PIL import Image
+import time
+to_pil = transforms.ToPILImage()
+
+from torchvision.utils import save_image, make_grid
+```
