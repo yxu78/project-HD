@@ -486,3 +486,33 @@ sample (model, test_loader, fname1 =f'{prefix}/or_test.png', fname2=f'{prefix}/r
        batches=4)
 ```
 ### 1.3 Generative attention-diffusion model
+```
+import os,sys
+import math
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"    #加载第0块CPU
+```
+常规工具
+```
+import shutil    #文件操作
+from torchvision.utils import save_image, make_grid    #保存或拼接生成图片
+import torch    #深度学习库
+from sklearn.model_selection import train_test_split
+```
+导入前面已经写好的VQ-VAE模块、工具函数等
+```
+from HierarchicalDesign import VectorQuantize, VQVAEModel, Encoder_Attn ,Decoder_Attn,count_parameters
+from HierarchicalDesign import get_fmap_from_codebook
+```
+device设为0号GPU，检查实际能看到多少块GPU并打印
+```
+device = torch.device("cuda" if torch.cuda.is_available() 
+                                  else "cpu")
+
+device='cuda:0'
+
+num_of_gpus = torch.cuda.device_count()
+print(num_of_gpus)
+
+available_gpus = [torch.cuda.device(i) for i in range(torch.cuda.device_count())]
+available_gpus
+```
