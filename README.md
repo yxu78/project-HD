@@ -26,4 +26,4 @@ csvfile = '/data8/test2/test.csv'
 [具体操作](./VQ-VAE.md)  
 
 ### 1.3 Generative attention-diffusion model
-[具体操作](.Generative_attention-diffusion_model.md) 
+[具体操作](./Generative_attention-diffusion_model.md) 
