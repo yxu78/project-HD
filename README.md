@@ -1,5 +1,23 @@
 # project-HD
 to prove the applicability of the open source code in https://github.com/lamm-mit/HierarchicalDesign/tree/main
+## 0.准备工作
+从本地把训练集拷贝到集群
+```
+scp -r E:/documents/GEARS/file yxu78@xionglab3.mae.ncsu.edu:/data8/test2
+```
+在file内开一个ipynb，修改表格
+```
+import pandas as pd
+
+csv_path = r'test.csv'   # 注意 r'' 原始字符串
+out_path = r'test_fixed.csv'
+col = 'microstructure'
+
+df = pd.read_csv(csv_path)
+df[col] = df[col].str.replace(r'^\.\/gene_output_thick\/', '', regex=True)
+df.to_csv(out_path, index=False)
+print('Done:', out_path)
+```
 ## 1.跑通原代码
 取原数据集中的10张微结构图及其应力数据为训练集，训练原代码的AItool，并利用训练后的AItool进行预测。具体流程如下  
 ### 1.1进入工作环境
