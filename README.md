@@ -19,7 +19,7 @@ df.to_csv(out_path, index=False)
 print('Done:', out_path)
 ```
 ## 1.跑通原代码
-取原数据集中的10张微结构图及其应力数据为训练集，训练原代码的AItool，并利用训练后的AItool进行预测。具体流程如下  
+使用链接提供的数据集，训练AI tool，并利用训练后的AI tool进行预测。具体流程如下  
 ### 1.1进入工作环境
 在本地终端运行
 ```
