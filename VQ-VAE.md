@@ -1,3 +1,8 @@
+设置路径
+```
+data_dir = '/data8/test2/file/'
+csvfile = '/data8/test2/file/test_fixed.csv'
+```
 导入os库，选择使用第0张GPU
 ```
 import os
