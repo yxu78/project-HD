@@ -1,4 +1,4 @@
-设置路径
+根据实际情况设置路径
 ```
 data_dir = '/data8/test2/file/'
 csvfile = '/data8/test2/file/test_fixed.csv'
@@ -145,7 +145,7 @@ test_data=ImageDataset_ImagePairs(X_test,test_transforms)
 trainloader = torch.utils.data.DataLoader(train_data, batch_size=batch_size_)
 testloader = torch.utils.data.DataLoader(test_data, batch_size=batch_size_)
 return trainloader, testloader
-csvfile = '/data8/test2/test.csv'
+csvfile = '/data8/test2/file/test_fixed.csv'
 train_loader, test_loader  = ImagePairs_load_split_train_test(csvfile, .1, im_res=im_res_VAE,
                                                               batch_size_=batch_size)
 ```
@@ -156,10 +156,16 @@ print ("Number of test batches: ", len(test_loader), "batch size= ", batch_size,
 
 print("TOTAL images (account for full batches): ", len(train_loader)*batch_size+len(test_loader)*batch_size )
 ```
+打印的结果是
+```
+Number of training batches:  109 batch size=  12 total:  1308
+Number of test batches:  13 batch size=  12 total:  156
+TOTAL images (account for full batches):  1464
+```
+和原代码一致。继续运行
 ```
 im_res_VAE
 ```
-
 ```
 hidden_dim = 16   #this is how much depth the sequence will have
 
