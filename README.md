@@ -32,7 +32,7 @@ jupyter lab
 ```
 再开一个本地终端窗口，运行
 ```
-ssh -L 8888:localhost:8888 yxu78@xionglab3.mae.ncsu.edu (其中8888是上一个窗口给出的port,以具体情况为准)
+ssh -L 8888:localhost:8888 yxu78@xionglab3.mae.ncsu.edu #其中8888是上一个窗口给出的port,以具体情况为准
 ```
 用本地浏览器打开第一个窗口给出的链接进入jupyter lab，进入./test2文件夹，开一个名为test2.ipynb的kernel开始写代码块  
 设置数据目录路径和csv文件路径(后续工作视情况而定)
