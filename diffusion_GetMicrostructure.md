@@ -244,8 +244,8 @@ def unscale_image(image2):
 ```
 设置路径
 ```
-data_dir = '/data8/test2/'
-csvfile = '/data8/test2/test.csv'
+data_dir = '/data8/test2/file/'
+csvfile = '/data8/test2/file/test_fixed.csv'
 ```
 自定义数据集
 ```
@@ -345,7 +345,7 @@ def ImagePairs_load_split_train_test(csvfile, valid_size = .2, im_res=256, batch
     testloader = torch.utils.data.DataLoader(test_data, batch_size=batch_size_)
     return trainloader, testloader, X_max, X_min
 
-csvfile = '/data8/test2/test.csv'
+csvfile = '/data8/test2/file/test_fixed.csv'
 
 train_loader, test_loader, X_max, X_min = ImagePairs_load_split_train_test(csvfile, .1, 
                                                                            im_res=im_res_final,
@@ -360,4 +360,492 @@ print("TOTAL images (account for full batches): ", len(train_loader)*batch_size_
 print ("X_max", X_max, "X_min ", X_min)
 ```
 ```
+sample_VAE (VQVAEmodel, test_loader, fname1 =f'or_test.png', fname2=f'rec_test.png',samples = 3)
+```
+Training loop
+```
+#from pytorch_lightning.utilities.seed import seed_everything
+#from pytorch_lightning.utilities.seed import reset_seed, isolate_rng
+```
+```
+def sample_sequence (model,
+                X=[[10, 10, 8, 3, 13, 13, 14, 7, 3, 10 ]],
+                 flag=0,
+                     cond_scales=1.,foldproteins=False,
+                     seed=None,plot_original_data=False,GT =None,
+               ):
+    steps=0
+    e=flag
 
+    if seed !=None:
+        print ("Set seed to: ", seed)
+        seed_everything(seed)
+    
+    print (f"Producing {len(X)} samples...")
+    
+    X=torch.Tensor(X)
+    X=(X-X_min)/(X_max-X_min)*2-1 #Normalize range -1 to 1
+    for iisample in range (len (X)):
+        
+        
+        
+        X_cond= (X[iisample] ).to(device).unsqueeze (0)
+        
+        print (X_cond.shape)
+        result=model.sample ( X_cond,stop_at_unet_number=train_unet_number ,
+                                 cond_scale=cond_scales )
+            
+      
+        if plot_original_data:
+            
+            cond_unscaled=(X_cond[0,:].cpu().detach().numpy()+1)/2.*(X_max-X_min)+X_min
+            
+            plt.plot (cond_unscaled,label= f'Required stress-strain data')
+            plt.ylim ((0, 1.1))
+            #plt.plot (GT[samples,0,:],label= f'GT {0}')
+            plt.legend()
+            
+            fname4= prefix+ f"input_to_samples_{e}_{steps}.jpg"
+            plt.savefig(fname4, dpi=300)   
+            plt.show()
+    
+       
+        result=torch.reshape(result, (result.shape[0],result.shape[1], sqer_z,sqer_z))
+        
+        model.imagen.VAE.eval()
+        with torch.no_grad():
+            
+            result,_ =  model.imagen.VAE.decode_snapped(result,  )
+            result=unscale_image(result)
+        
+
+        fname2=prefix+ f"sampld_from_X_{flag}_condscale-{str (cond_scales)}_{e}_{steps}.jpg"
+        
+
+        draw_sample_image(result[0,:], "Predicted microstructure", fname2)  
+
+ 
+        steps=steps+1
+       
+    reset_seed()
+```
+```
+def draw_sample_image(x, postfix, fname=None):
+  
+    plt.figure(figsize=(8,8))
+    plt.axis("off")
+    plt.title("Visualization of {}".format(postfix))
+    plt.imshow(np.transpose(make_grid(x.detach().cpu(), padding=0, normalize=True), (1, 2, 0)))
+    if fname != None:
+        plt.savefig(fname, dpi=300)
+    plt.show()
+```
+```
+def sample_loop (model,
+                train_loader,
+                cond_scales=[7.5], #list of cond scales - each sampled...
+                num_samples=2, #how many samples produced every time tested.....
+                 
+                 flag=0,foldproteins=False,
+                  seed=None,save_ind_files=False,
+                 plot_structure=False,plot_original_data=False,do_forward=False,number_batches=1,strain=None,
+                 csv_for_data=None,
+                 mix_bernouilli=False, bernouilli_prob=0.5, #if True sample two solutions and mix accordig to Bernouilli
+                 #init_images=None,
+                 repeat_sampling=1,
+               ):
+    steps=0
+    e=flag
+    
+    if seed !=None:
+        print ("Set seed to: ", seed)
+        seed_everything(seed)
+    if csv_for_data!=None:
+        print ("Open CSV file to save...", csv_for_data)
+        stresses_list =[]
+        image_list =[]
+        
+    for item  in train_loader:
+
+            X_train_batch= item[0].to(device)
+            y_train_batch=item[1].to(device)
+
+            GT=y_train_batch.cpu().detach() 
+            
+            print (X_train_batch.shape, y_train_batch.shape)
+            num_samples = min (num_samples,y_train_batch.shape[0] )
+            print (f"Producing {num_samples} samples..., batch size ={y_train_batch.shape[0]}")
+ 
+            for iisample in range (len (cond_scales)):
+        
+                cond_unscaled=(X_train_batch.cpu().detach().numpy()+1)/2.*(X_max-X_min)+X_min
+            
+                
+                result=model.sample ( X_train_batch,stop_at_unet_number=train_unet_number ,
+                                         cond_scale=cond_scales[iisample])
+                
+                if repeat_sampling>1:
+                    print (f"Repeat sampling {repeat_sampling} times")
+                    for irep in range (repeat_sampling-1):
+                        print (f"Repeat {irep}")
+                        result=model.sample ( X_train_batch,stop_at_unet_number=train_unet_number ,
+                                             cond_scale=cond_scales[iisample],
+                                            init_images=result)
+                print (result.shape)
+                
+                if mix_bernouilli:
+                    result_2=model.sample ( X_train_batch,stop_at_unet_number=train_unet_number ,
+                                         cond_scale=cond_scales[iisample])
+                    print (f"Repeat sampling {repeat_sampling} times")
+                    if repeat_sampling>1:
+                        for irep in range (repeat_sampling-1):
+                            print (f"Repeat {irep}")
+                            result2=model.sample ( X_train_batch,stop_at_unet_number=train_unet_number ,
+                                                 cond_scale=cond_scales[iisample],
+                                                init_images=result2)
+
+                    mask = torch.bernoulli(torch.full(result.shape, bernouilli_prob)).int().to(device)
+                    reverse_mask = torch.ones(result.shape).int().to(device) - mask
+
+                    result = result * mask + result_2 * reverse_mask
+
+                
+                result=torch.reshape(result, (result.shape[0],result.shape[1],sqer_z,sqer_z))
+                model.imagen.vit_vae.eval()
+                
+                with torch.no_grad():
+                    result,_ =  model.imagen.vit_vae.decode_snapped(result, ) 
+                
+                result=unscale_image(result)
+                GT=unscale_image(GT)
+                 
+                
+                fig, axs = plt.subplots(1, num_samples, figsize=(4.5 * num_samples, 3))
+
+                # 如果 num_samples==1，plt.subplots 会直接返回一个 Axes 而不是列表，
+                # 这里把它包装成长度为1的列表，后面统一用 axs[i] 就不会出错了
+
+                if num_samples == 1:
+                    axs = [axs]
+
+                for iu in range (num_samples):
+                    
+                    if strain==None:
+                        axs[ iu].plot (cond_unscaled[iu,:] ,
+                                        label= f'Input, spl {iu}')
+                      
+                    else:
+                        lstrai=min (len (strain),cond_unscaled[iu,:].shape[0] )
+                        axs[ iu].plot (strain[:lstrai], cond_unscaled[iu,:lstrai] ,
+                            label= f'Input, spl {iu}')
+                        axs[ iu].set_xlabel('Strain')
+                        axs[ iu].set_ylabel('Stress $\sigma$ (MPa)')
+                    axs[ iu].set_aspect(0.5, adjustable='box')
+                    
+                    axs[ iu].set_ylim([0,1.2])
+                    axs[ iu].legend()
+                    
+                    if save_ind_files:    
+                        fname2= prefix+ f"recon_samples_{e}_{steps}_{iu}.png"
+                        print ("Save individual samples ", fname2)
+                      
+                        image_sample = to_pil( result[iu,:].cpu()  )
+
+                          
+                        image_sample.save(f'{fname2}', format="PNG",  subsampling=0  )
+                        fname2= prefix+ f"recon_samples_{e}_{steps}_{iu}.tiff"
+                        
+                        image_sample.save(f'{fname2}', format="TIFF",  subsampling=0  )
+                        
+                        if csv_for_data!=None:
+                            stresses_list.append(np.array2string(cond_unscaled[iu,:lstrai], separator=', ')  )
+                            image_list.append(fname2)
+                        
+                        
+                       
+                plt.savefig(f'{prefix}/stress_strain_input__{e}_{steps}.svg', dpi=300)#, quality = 95)  
+                plt.savefig(f'{prefix}/stress_strain_input__{e}_{steps}.png', dpi=300)#, quality = 95)  
+                plt.show()
+ 
+                fname1=  prefix+ f"OR_samples_{e}_{steps}.png"
+                fname2= prefix+ f"recon_samples_{e}_{steps}.png"
+                draw_sample_image(GT[:num_samples,:], "Ground-truth images", fname1)
+    
+                draw_sample_image(result[:num_samples,:], "Reconstructed images", fname2)   
+         
+                     
+            steps=steps+1
+            if steps>=number_batches:
+                
+                if csv_for_data!=None:
+                    
+                    print("Now save CSV file:" , csv_for_data)
+                    df = pd.DataFrame()
+                    df['stresses'] =  stresses_list
+                    df['microstructure'] =  image_list
+                    df.to_csv(csv_for_data)
+                
+                
+                break                        
+    if csv_for_data!=None:
+
+        print("Now save CSV file:" , csv_for_data)
+        df = pd.DataFrame()
+        df['stresses'] =  stresses_list
+        df['microstructure'] =  image_list
+        df.to_csv(csv_for_data)
+```
+```
+def train_loop (model,
+                train_loader,
+                test_loader,
+                optimizer=None,
+                print_every=10,
+                epochs= 300,
+                start_ep=0,
+                start_step=0,
+                train_unet_number=1,
+                print_loss=1000,
+                trainer=None,
+                plot_unscaled=False,
+                max_batch_size=4,
+                save_model=False,
+                cond_scales=[7.5], #list of cond scales - each sampled...
+                num_samples=4, #how many samples produced every time tested.....
+                foldproteins=False,
+                seed=None,strain=None,
+                val_loader = None,save_ind_files=False,
+                 
+               ):
+    
+
+    if not exists (trainer):
+        if not exists (optimizer):
+            print ("ERROR: If trainer not used, need to provide optimizer.")
+    if exists (trainer):
+        print ("Trainer provided... will be used")
+    steps=start_step
+    
+    loss_total=0
+    for e in range(1, epochs+1):
+            start = time.time()
+
+            torch.cuda.empty_cache()
+            print ("######################################################################################")
+            start = time.time()
+            print ("NOW: Training epoch: ", e+start_ep)
+
+            # TRAINING
+            train_epoch_loss = 0
+            model.train()
+            
+            print ("Loop over ", len(train_loader), " batches (print . every ", print_every, " steps)")
+
+
+            for item  in train_loader:
+
+
+                X_train_batch= item[0].to(device)
+
+                y_train_batch=item[1].to(device)
+            
+                
+                model.imagen.vit_vae.eval()
+                
+                with torch.no_grad():
+                    y_train_batch  =  model.imagen.vit_vae.encode(y_train_batch, )
+                  
+                    
+                    
+                y_train_batch=torch.reshape(y_train_batch, (y_train_batch.shape[0],
+                                                            y_train_batch.shape[1],
+                                                            y_train_batch.shape[2]**2))
+                
+                
+                if exists (trainer):
+                    loss = trainer(
+                            X_train_batch, y_train_batch,#.unsqueeze(1) ,
+                            unet_number=train_unet_number,
+                            max_batch_size = max_batch_size,     
+                        )
+                    trainer.update(unet_number = train_unet_number)
+
+                else:
+                    optimizer.zero_grad()
+                    loss=model ( X_train_batch, y_train_batch.unsqueeze(1) ,unet_number=train_unet_number)
+                    loss.backward( )
+                    
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
+
+                  
+                    optimizer.step()
+
+               
+                loss_total=loss_total+loss.item()
+
+
+                if steps % print_every == 0:
+                    print(".", end="")
+
+                if steps>0:
+                    if steps % print_loss == 0:
+
+                        norm_loss=loss_total/print_loss
+                        print (f"\nTOTAL LOSS at epoch={e+start_ep}, step={steps}: {norm_loss}")
+
+                        loss_list.append (norm_loss)
+                        loss_total=0
+
+                        plt.plot (loss_list, label='Loss')
+                        plt.legend()
+
+                        outname = prefix+ f"loss_{e}_{steps}.jpg"
+                        plt.savefig(outname, dpi=200)
+                        plt.show()
+                        
+                        ####
+                        #num_samples = min (num_samples,y_train_batch.shape[0] )
+                        #print (f"Producing {num_samples} samples...")
+                        
+                        sample_loop (model,
+                            test_loader,
+                            cond_scales=cond_scales,#[7.5], #list of cond scales - each sampled...
+                            num_samples=num_samples, #how many samples produced every time tested.....
+                          
+                                    flag=steps,foldproteins=foldproteins,seed=seed,
+                                     strain=strain,save_ind_files=save_ind_files,
+                                    )   
+                        if val_loader !=None:
+                            sample_loop (model,
+                                val_loader ,
+                                cond_scales=[1],#[7.5], #list of cond scales - each sampled...
+                                num_samples=4, #how many samples produced every time tested.....
+                               
+                                        flag=steps, plot_structure=True, plot_original_data=True,do_forward=False,
+             number_batches=4, strain=strain, save_ind_files=save_ind_files,
+                                    )
+ 
+                if steps>0:
+                    if save_model and steps % print_loss==0: #steps % print_loss == 0:
+                        fname=f"{prefix}trainer_save-model-epoch_{e+start_ep}.pt"
+                        trainer.save(fname)
+                        fname=f"{prefix}statedict_save-model-epoch_{e+start_ep}.pt"
+                        torch.save(model.state_dict(), fname)
+                        print (f"Model saved: ")
+                    
+                steps=steps+1
+                                         
+            print (f"\n\n-------------------\nTime for epoch {e+start_ep}={(time.time()-start)/60}\n-------------------")
+```
+define, train/load model
+```
+from HierarchicalDesign import HierarchicalDesignDiffusion, HiearchicalDesignTrainer
+```
+```
+from HierarchicalDesign import HierarchicalDesignDiffusion, HiearchicalDesignTrainer
+```
+```
+loss_list=[]
+strain=[]
+
+for i in range (32):
+    strain.append (i*0.02 )
+    
+load_model = True
+```
+```
+prefix='./Diffusion_results/'
+if not os.path.exists(prefix):
+        os.mkdir (prefix)
+```
+```
+z_reshaped.shape[2]
+```
+输出64
+```
+sqer_z=int (z_reshaped.shape[2]**0.5)
+sqer_z
+```
+输出8
+```
+z_reshaped.shape[1]
+```
+输出16
+```
+latent_dim=z_reshaped.shape[2]
+max_length=latent_dim
+
+pred_dim=z_reshaped.shape[1]
+cond_dim=16
+embed_dim_position=16 #cond_dim
+model =HierarchicalDesignDiffusion (timesteps=(96), dim=128, pred_dim=pred_dim, 
+                     loss_type=0, 
+                  padding_idx=0,
+                cond_dim = embed_dim_position+cond_dim,
+                text_embed_dim =embed_dim_position,#+cond_dim,
+                    # input_tokens=input_tokens,
+                 embed_dim_position=embed_dim_position,#+cond_dim,
+                 max_text_len=32,
+                      pos_emb=False,
+                     pos_emb_fourier=True,
+                     pos_emb_fourier_add=True, #embed_dim_position must be equal to text_embed_dim
+             device=device,
+    add_z_loss = False, # True,
+        loss_z_factor = 1.,
+                     VAE=VQVAEmodel,
+                                    max_length=max_length,
+                )  .to(device)  
+
+train_unet_number=1 #there is only one U-net 
+
+count_parameters (model)
+```
+输出Total parameters:  154080820  trainable parameters:  154080820
+```
+if load_model!=True:
+    trainer = HiearchicalDesignTrainer(model)
+    train_loop (model,
+                train_loader,
+               test_loader,
+                optimizer=None,
+                print_every=100,
+                epochs= 2400,
+                start_ep=0,
+            start_step=0,
+                train_unet_number=1,
+            print_loss =    5*len (train_loader)-1,
+            trainer=trainer,
+            plot_unscaled=False,#if unscaled data is plotted
+            max_batch_size =16,#if trainer....
+            save_model=True,
+            cond_scales=[  1],#[1, 2.5, 3.5, 5., 7.5, 10., 15., 20.],
+            num_samples=16,foldproteins=True,strain=strain,
+               )
+```
+如果有训练好的模型
+```
+if load_model:
+    fname=f"{prefix}statedict_save-model-epoch_4000_FINAL.pt"
+    model.load_state_dict(torch.load(fname))
+```
+没有就直接
+```
+sample_loop    (model,
+                test_loader ,
+                cond_scales=[1],#list of cond scales - each sampled...
+                num_samples=4, #how many samples produced every time tested.....
+                flag=1000, plot_structure=True, plot_original_data=True,do_forward=False,
+                strain=strain,
+                number_batches=1, #How many batches are sampled
+             )
+```
+```
+sample_loop (model,
+                            test_loader ,
+                            cond_scales=[1],# 
+                            num_samples=4, #how many samples produced every time tested.....
+                                    flag=8000, plot_structure=True, plot_original_data=True,do_forward=False,
+             strain=strain,number_batches=1,save_ind_files=True,csv_for_data='301_test_2.csv' #stored results in CSV file
+                                    )
+```
+        
