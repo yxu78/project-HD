@@ -34,11 +34,25 @@ jupyter lab
 ```
 ssh -L 8888:localhost:8888 yxu78@xionglab3.mae.ncsu.edu #其中8888是上一个窗口给出的port,以具体情况为准
 ```
-用本地浏览器打开第一个窗口给出的链接进入jupyter lab，进入./test2文件夹，开一个名为test2.ipynb的kernel开始写代码块  
+用本地浏览器打开第一个窗口给出的链接进入jupyter lab，进入./test2/file文件夹，开一个名为test2.ipynb的kernel开始写代码块  
+开启日志监听
+```
+tmux new -s jl
+```
+```
+mkdir -p ~/logs
+jupyter lab --no-browser --ServerApp.log_level=DEBUG 2>&1 | tee -a ~/logs/jupyter_$(date +%F).log
+```
+若掉线要检查日志
+```
+tmux attach -t jl        # 回到会话
+# 或者单独看日志文件
+tail -f ~/logs/jupyter_$(date +%F).log
+```
 设置数据目录路径和csv文件路径(后续工作视情况而定)
 ```
-data_dir = '/data8/test2/'
-csvfile = '/data8/test2/test.csv'
+data_dir = '/data8/test2/file/'
+csvfile = '/data8/test2/file/test.csv'
 ```
 ### 1.2 VQ-VAE Model
 [具体操作](./VQ-VAE.md)  
