@@ -595,6 +595,23 @@ def sample_loop (model,
         df['microstructure'] =  image_list
         df.to_csv(csv_for_data)
 ```
+在原代码基础上增补
+```
+def exists(x):
+    return x is not None
+```
+由于HierarchicalDesignTrainer.update(...)里对优化器的调用方式与当前accelerate版本不兼容。  
+尝试给PyTorch和accelerate降版本  
+```
+conda activate HierarchicalDesign
+```
+```
+pip install "torch==2.0.1+cu117" "torchvision==0.15.2+cu117" \
+  --index-url https://download.pytorch.org/whl/cu117
+```
+```
+pip install "accelerate==0.20.3"
+```
 ```
 def train_loop (model,
                 train_loader,
@@ -800,7 +817,32 @@ train_unet_number=1 #there is only one U-net
 
 count_parameters (model)
 ```
-输出Total parameters:  154080820  trainable parameters:  154080820
+输出Total parameters:  154080820  trainable parameters:  154080820  
+第一次跑的时候报错说name '__version__' is not defined. 查看__version__，终端运行
+```
+grep -R "__version__" -n /data8/HierarchicalDesign
+```
+```
+# 放在 Notebook 的上方单元里，在 import 并实例化 trainer 之后、调用 train_loop 之前
+import sys
+
+# 拿到定义 HiearchicalDesignTrainer 的那个模块对象
+mod = sys.modules[HiearchicalDesignTrainer.__module__]
+
+import importlib
+# 1) 引入版本号
+from HierarchicalDesign.version import __version__ as _ver
+# 2) 找到 Diffusion 模块对象
+Diffusion = importlib.import_module('HierarchicalDesign.Diffusion')
+# 3) 把版本号塞到 Diffusion 模块的全局变量里
+Diffusion.__version__ = _ver
+
+print("Set __version__ =", Diffusion.__version__)
+```
+第一次，没有训练好的模型
+```
+load_model=False
+```
 ```
 if load_model!=True:
     trainer = HiearchicalDesignTrainer(model)
