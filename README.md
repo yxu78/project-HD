@@ -59,3 +59,6 @@ csvfile = '/data8/test2/file/test.csv'
 
 ### 1.3 Generative attention-diffusion model
 [具体操作](./Generative_attention-diffusion_model.md) 
+
+## 2.生成我自己的数据集
+现在需要 1.很多data file 2. 一个in文件 3..sh文件。
