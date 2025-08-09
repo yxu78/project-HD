@@ -101,3 +101,16 @@ fix            3 all ave/atom 1 5000 5000 c_1[1] c_1[2]
 variable       strain equal 0.02
 run            20000
 ```
+取消fix 2。  
+fix 3对每个原子的应力分量做时间平均：每步取样一次，累计5000次后输出一次平均值（在步数5000、10000、15000...时更新）。  
+演化20000步，让体系在该应变下充分松弛，同时得到平滑的（时间平均的）原子应力。
+```
+##---------------DEFORMATION--------------------------------------
+unfix          3
+fix            2 all deform 1 y erate ${srate1} units box remap x
+dump           2 all custom 10 dump.all.p2 id type x y z c_1[1] c_1[2] c_1[3] c_1[4] c_1[5] c_1[6]
+variable       strain equal v_StrainPerTs*(step-20000)
+```
+取消fix 3。  
+重新加载fix 2，在y方向拉伸模拟盒。
+dump 2每10步输出原子id、type、坐标以及应力张量6分量到dump.all.p2。
