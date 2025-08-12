@@ -13,3 +13,31 @@ make yes-manybody
 ```
 make mpi
 ```
+然后这里应该会有一个报错
+```
+mpicxx: No such file or directory
+```
+看一下
+```
+which mpicxx
+```
+然后应该会显示no mpicxx in (...)  
+把mpi加入系统PATH
+```
+module load mpi
+```
+可以通过
+```
+echo $PATH
+```
+来查看系统PATH  
+然后重新
+```
+make mpi
+```
+make mpi version of lammps  
+结束后可以通过
+```
+ls lmp_mpi
+```
+确认目录里有lmp_mpi
