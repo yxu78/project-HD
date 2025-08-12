@@ -7,3 +7,9 @@ https://oitncsu-my.sharepoint.com/:f:/g/personal/ychunxu_ncsu_edu/Em0mHaCBRo5Csc
 ```
 tar -xzvf lammps*.tar.gz
 ```
+```
+make yes-manybody
+```
+```
+make mpi
+```
