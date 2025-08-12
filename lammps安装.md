@@ -40,4 +40,8 @@ make mpi version of lammps
 ```
 ls lmp_mpi
 ```
-确认目录里有lmp_mpi
+确认目录里有lmp_mpi  
+lmp_mpi的路径为
+```
+/data8/lammps/lammps-22Jul2025/src/lmp_mpi
+```
