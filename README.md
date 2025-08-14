@@ -1,5 +1,6 @@
 # project-HD
-to prove the applicability of the open source code in https://github.com/lamm-mit/HierarchicalDesign/tree/main
+to prove the applicability of the open source code in https://github.com/lamm-mit/HierarchicalDesign/tree/main  
+就是用自己的数据集去验证上面链接里的机器学习代码的可适用性。数据集是一个csv表格，一栏是材料微结构图像的路径，一栏是对应的应力应变数据。
 ## 0.准备工作
 从本地把训练集拷贝到集群
 ```
