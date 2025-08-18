@@ -27,6 +27,23 @@ which mpicxx
 ```
 module load mpi
 ```
+如果系统没有装module，则可以通过
+```
+find / -name mpirun 2>/dev/null
+```
+或者
+```
+find / -name mpicxx 2>/dev/null
+```
+来查找mpi装的目录。查到之后，比如zju的超算集群的mpi装在/usr/mpi/gcc/openmpi-4.1.5a1/bin  
+接下来就可以通过
+```
+export PATH=/usr/mpi/gcc/openmpi-4.1.5a1/bin:$PATH
+```
+```
+export LD_LIBRARY_PATH=/usr/mpi/gcc/openmpi-4.1.5a1/lib:$LD_LIBRARY_PATH
+```
+手动将mpi加到PATH，而不用通过module  
 可以通过
 ```
 echo $PATH
